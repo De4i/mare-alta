@@ -7,19 +7,38 @@ export function buildWorld(scene){
  const box=(x,y,z,w,h,d,c)=>{const m=new T.Mesh(new T.BoxGeometry(w,h,d),typeof c==='string'?mat(c):c);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m};
  const sign=(text,x,y,z,color='#123d44',width=10)=>{const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');g.fillStyle=color;g.fillRect(0,0,512,128);g.fillStyle='#fff2cf';g.textAlign='center';g.font='bold 44px Arial';g.fillText(text,256,83);const m=new T.Mesh(new T.PlaneGeometry(width,width/4),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.DoubleSide}));m.position.set(x,y,z);scene.add(m);return m};
   box(0,-.3,0,184,.5,184,new T.MeshStandardMaterial({map:texture('stucco','#a18c64',10),roughness:.96}));const water=box(-96,0,0,48,.08,210,new T.MeshStandardMaterial({color:'#167c9b',map:texture('water','#167c9b',7),roughness:.25,metalness:.3}));water.name='harbour-water';const quay=box(-71,.15,0,2,1.4,184,'#c6a66c');quay.name='quay-wall';box(-68,.12,0,4,.3,184,'#c6a66c');
-  for(const z of [68,74,80]){const hull=box(-79,.5,z,4.4,1.1,9,'#e5dcc4');hull.name='moored-boat';box(-79,1.35,z-1.2,3,.95,3.4,'#315a6c');box(-75,.3,z,5.4,.22,.22,'#665646');const mast=new T.Mesh(new T.CylinderGeometry(.12,.16,7,8),new T.MeshStandardMaterial({color:'#7a6446',roughness:.7}));mast.position.set(-79,4.4,z+1.6);mast.name='boat-mast';mast.castShadow=true;scene.add(mast);const yard=new T.Mesh(new T.CylinderGeometry(.08,.08,4.4,6),new T.MeshStandardMaterial({color:'#7a6446'}));yard.position.set(-79,5.4,z+1.6);yard.rotation.z=Math.PI/2;scene.add(yard);const sail=new T.Mesh(new T.PlaneGeometry(.1,3.2),new T.MeshStandardMaterial({color:'#f2ead4',side:T.DoubleSide}));sail.position.set(-79,3.9,z+2.2);sail.name='boat-sail';scene.add(sail);const wake=new T.Mesh(new T.RingGeometry(1.3,2.1,20),new T.MeshBasicMaterial({color:'#c6e7df',transparent:true,opacity:.45,side:T.DoubleSide}));wake.rotation.x=-Math.PI/2;wake.position.set(-83,.08,z+2);wake.name='boat-wake';scene.add(wake)}
-  // Gantry crane straddling the quay with a travelling trolley and container stacks.
-  const craneMat=new T.MeshStandardMaterial({color:'#c98a3c',roughness:.6,metalness:.25});
-  const crane=new T.Group();crane.name='gantry-crane';
-  for(const z of [66,80]){const leg=new T.Mesh(new T.BoxGeometry(.5,7,.5),craneMat);leg.position.set(-67,3.5,z);crane.add(leg);const leg2=new T.Mesh(new T.BoxGeometry(.5,7,.5),craneMat);leg2.position.set(-73,3.5,z);crane.add(leg2);const foot=new T.Mesh(new T.BoxGeometry(1,.4,1),new T.MeshStandardMaterial({color:'#5c6a63'}));foot.position.set(-67,.2,z);crane.add(foot);const foot2=foot.clone();foot2.position.set(-73,.2,z);crane.add(foot2)}
-  const girder=new T.Mesh(new T.BoxGeometry(8.4,.6,.8),craneMat);girder.position.set(-70,7.2,73);crane.add(girder);
-  const bieam=new T.Mesh(new T.BoxGeometry(.5,.5,15),new T.MeshStandardMaterial({color:'#d8a24a',metalness:.3}));bieam.position.set(-70,7.8,73);crane.add(bieam);
-  const trolley=new T.Mesh(new T.BoxGeometry(1.1,.7,1.4),new T.MeshStandardMaterial({color:'#3f4c50'}));trolley.position.set(-70,7.3,74);trolley.name='crane-trolley';crane.add(trolley);
-  const cable=new T.Mesh(new T.CylinderGeometry(.06,.06,3.2,6),new T.MeshStandardMaterial({color:'#3b5053'}));cable.position.set(-70,5.6,74);crane.add(cable);
-  const hook=new T.Mesh(new T.BoxGeometry(.9,.5,.9),new T.MeshStandardMaterial({color:'#b65b3f'}));hook.position.set(-70,4,74);hook.name='crane-hook';crane.add(hook);
-  scene.add(crane);
-  const stackColors=['#b65b3f','#367f8d','#c8a94a'];
-  const stacks=[[-64,71],[-63.6,74.5],[-64.4,78]];stacks.forEach(([sx,sz],i)=>{const c1=box(sx,1.4,sz,5.4,2.6,4.2,stackColors[i%3]);c1.name='container-stack';const c2=box(sx,4,sz,4.8,2.4,3.8,stackColors[(i+1)%3]);c2.name='container-stack'});
+   // Moored boats at the quay, each with a hull, cabin and rigging. One is a
+   // small fishing boat with a derrick arm, two are sailing hulls with masts.
+   const boats=[[78,'sail'],[86,'sail'],[94,'fish']];
+   boats.forEach(([z,kind],i)=>{
+    const hull=box(-80,.5,z,4.4,1.1,9,kind==='fish'?'#d8cba6':'#e5dcc4');hull.name='moored-boat';
+    box(-80,1.35,z-2.2,3,.95,3.4,kind==='fish'?'#3d6a4f':'#315a6c');          // cabin
+    box(-80,1.95,z-2.2,3.2,.12,3.6,kind==='fish'?'#2c4d3a':'#24485a');         // cabin roof
+    box(-76,.3,z,5.4,.22,.22,'#665646');                                      // gunwale rail
+    if(kind==='fish'){
+     const arm=new T.Mesh(new T.CylinderGeometry(.08,.12,6,8),new T.MeshStandardMaterial({color:'#8a6f4a',roughness:.7}));arm.position.set(-79,3.2,z+3);arm.rotation.z=-.5;arm.name='boat-derrick';arm.castShadow=true;scene.add(arm);
+     const winch=new T.Mesh(new T.CylinderGeometry(.35,.35,.5,10),new T.MeshStandardMaterial({color:'#5a6a62',metalness:.4}));winch.rotation.z=Math.PI/2;winch.position.set(-80,1.9,z-3.6);scene.add(winch);
+    }else{
+     const mast=new T.Mesh(new T.CylinderGeometry(.12,.16,7,8),new T.MeshStandardMaterial({color:'#7a6446',roughness:.7}));mast.position.set(-80,4.4,z+1.6);mast.name='boat-mast';mast.castShadow=true;scene.add(mast);
+     const yard=new T.Mesh(new T.CylinderGeometry(.08,.08,4.4,6),new T.MeshStandardMaterial({color:'#7a6446'}));yard.position.set(-80,5.4,z+1.6);yard.rotation.z=Math.PI/2;scene.add(yard);
+     const sail=new T.Mesh(new T.PlaneGeometry(.1,3.2),new T.MeshStandardMaterial({color:'#f2ead4',side:T.DoubleSide}));sail.position.set(-80,3.9,z+2.2);sail.name='boat-sail';scene.add(sail);
+    }
+    const wake=new T.Mesh(new T.RingGeometry(1.3,2.1,20),new T.MeshBasicMaterial({color:'#c6e7df',transparent:true,opacity:.45,side:T.DoubleSide}));wake.rotation.x=-Math.PI/2;wake.position.set(-84,.08,z+2);wake.name='boat-wake';scene.add(wake);
+   });
+   // Gantry crane straddling the quay, set back in z from the boats, with four
+   // legs, a cross girder, a travelling trolley, cable and hook.
+   const craneMat=new T.MeshStandardMaterial({color:'#c98a3c',roughness:.6,metalness:.25});
+   const crane=new T.Group();crane.name='gantry-crane';
+   for(const z of [90,102]){const leg=new T.Mesh(new T.BoxGeometry(.5,7,.5),craneMat);leg.position.set(-66,3.5,z);crane.add(leg);const leg2=new T.Mesh(new T.BoxGeometry(.5,7,.5),craneMat);leg2.position.set(-74,3.5,z);crane.add(leg2);const foot=new T.Mesh(new T.BoxGeometry(1,.4,1),new T.MeshStandardMaterial({color:'#5c6a63'}));foot.position.set(-66,.2,z);crane.add(foot);const foot2=foot.clone();foot2.position.set(-74,.2,z);crane.add(foot2)}
+   const girder=new T.Mesh(new T.BoxGeometry(9.4,.6,.8),craneMat);girder.position.set(-70,7.2,96);crane.add(girder);
+   const bieam=new T.Mesh(new T.BoxGeometry(.5,.5,15),new T.MeshStandardMaterial({color:'#d8a24a',metalness:.3}));bieam.position.set(-70,7.8,96);crane.add(bieam);
+   const trolley=new T.Mesh(new T.BoxGeometry(1.1,.7,1.4),new T.MeshStandardMaterial({color:'#3f4c50'}));trolley.position.set(-70,7.3,95);trolley.name='crane-trolley';crane.add(trolley);
+   const cable=new T.Mesh(new T.CylinderGeometry(.06,.06,3.2,6),new T.MeshStandardMaterial({color:'#3b5053'}));cable.position.set(-70,5.6,95);crane.add(cable);
+   const hook=new T.Mesh(new T.BoxGeometry(.9,.5,.9),new T.MeshStandardMaterial({color:'#b65b3f'}));hook.position.set(-70,4,95);hook.name='crane-hook';crane.add(hook);
+   scene.add(crane);
+   // Two container stacks in different colours, each two boxes high.
+   const stackColors=['#b65b3f','#367f8d','#c8a94a'];
+   const stacks=[[-62,88],[-62,96]];stacks.forEach(([sx,sz],i)=>{const c1=box(sx,1.4,sz,5.4,2.6,4.2,stackColors[i%3]);c1.name='container-stack';const c2=box(sx,4,sz,4.8,2.4,3.8,stackColors[(i+1)%3]);c2.name='container-stack'});
 
   for(let a=-48;a<=72;a+=24){
     const road=new T.MeshStandardMaterial({color:'#343d44',map:texture('asphalt','#343d44',3),roughness:.96});box(a,.015,0,9,.12,184,road);box(0,.02,a,160,.12,a===72?14:9,road);

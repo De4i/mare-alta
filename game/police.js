@@ -7,9 +7,8 @@ import {person} from './actors.js';
 // three stars. Cruiser pursuit and the escape-by-line-of-sight rule stay intact.
 export function makePolice(scene){
  const units=Array.from({length:4},(_,i)=>Object.assign(vehicle(scene,i===3?'#334651':'#f0eee0',true,i>=2),{heavy:i>=2,active:false,hp:i>=2?150:100}));
- // Lift the lightbar above the roofline so the red and blue lamps stay visible
- // from an elevated chase camera.
- units.forEach(u=>u.lamps.forEach(l=>{l.position.y=2.3}));
+ // The lightbar sits on the roof in traffic.js; its lamps stay visible from an
+ // elevated chase camera without a forced lift, so the bar and lamps stay joined.
  const officers=Array.from({length:3},()=>{const p=person(scene,'#23455e');p.visible=false;return p});
 
  // Persistent helicopter: fuselage, tail boom with stabiliser, and a turning rotor.
@@ -50,7 +49,7 @@ export function updatePolice(p,s,world,dt,time,damage){
  let seen=false;const count=s.wanted?Math.min(4,s.wanted+1):0;
  p.units.forEach((u,i)=>{const active=i<count;u.g.visible=active&&u.hp>0;if(!active){u.active=false;u.hp=u.heavy?150:100;return}if(!u.active){u.g.position.set(s.x+(i%2?-12:13),.1,s.z-12-i*5);u.active=true}
   if(u.hp<=0)return;const dx=s.x-u.g.position.x,dz=s.z-u.g.position.z,d=Math.hypot(dx,dz),visible=!world.occluded(u.g.position.x,u.g.position.z,s.x,s.z);if(d<38&&visible)seen=true;
-   if(d>7){const step=(u.heavy?8:6)*dt,nx=u.g.position.x+dx/d*step,nz=u.g.position.z+dz/d*step;if(!world.blocked(nx,u.g.position.z,1))u.g.position.x=nx;if(!world.blocked(u.g.position.x,nz,1))u.g.position.z=nz}u.g.rotation.y=Math.atan2(dx,dz);u.lamps.forEach(l=>{l.visible=true;l.material.emissiveIntensity=Math.sin(time*8)>0?3:0});
+   if(d>7){const step=(u.heavy?8:6)*dt,nx=u.g.position.x+dx/d*step,nz=u.g.position.z+dz/d*step;if(!world.blocked(nx,u.g.position.z,1))u.g.position.x=nx;if(!world.blocked(u.g.position.x,nz,1))u.g.position.z=nz}u.g.rotation.y=Math.atan2(dx,dz);u.lamps.forEach((l,i)=>{l.visible=true;l.material.emissiveIntensity=Math.sin(time*8+(i?0:Math.PI))>0?3:0});
  });
  p.officers.forEach((o,i)=>{o.visible=s.wanted>=2;if(!o.visible)return;const u=p.units[i];o.position.set(u.g.position.x+3,0,u.g.position.z+2);const d=Math.hypot(o.position.x-s.x,o.position.z-s.z);if(d<15&&!world.occluded(o.position.x,o.position.z,s.x,s.z)&&Math.sin(time*3+i)>.96)damage(dt*70)});
 

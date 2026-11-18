@@ -5,7 +5,7 @@
 
 Maré Alta is an original coastal-city crime game about borrowed cars, complicated favors and choosing when to disappear. Cross four districts on foot or behind the wheel, take eight story jobs, evade a growing police response, and build a little room to breathe.
 
-The police response escalates: light cruisers give chase, a heavier interceptor joins at two stars, a physical roadblock lands on the road ahead of you at three stars, and a persistent helicopter — a body, a tail boom and a turning rotor — orbits and shadows you from four stars. Escape by breaking line of sight. Role attributes bite in combat: Aim tightens the spread and raises damage per hit, Endurance raises maximum health, armour and sprint stamina, hits paint an impact flash on the target, and incoming fire tints the screen edge.
+The police response escalates: unmistakable light cruisers — white bodies with dark doors and bonnet, a wide blue side stripe, a door block mark and a raised roof light bar whose red and blue lamps flash on alternating phases — give chase, a heavier interceptor joins at two stars, a physical roadblock lands on the road ahead of you at three stars, and a persistent helicopter — a body, a tail boom and a turning rotor — orbits and shadows you from four stars. Escape by breaking line of sight. Role attributes bite in combat: Aim tightens the spread and raises damage per hit, Endurance raises maximum health, armour and sprint stamina, hits paint an impact flash on the target, and incoming fire tints the screen edge.
 
 ## Run it
 Open `game/index.html` in desktop Chrome, or serve the `game/` directory with `python -m http.server 8083 --bind 127.0.0.2 --directory game`.
