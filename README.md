@@ -10,4 +10,6 @@ Open `game/index.html` in desktop Chrome, or serve the `game/` directory with `p
 
 WASD moves, Shift sprints, E interacts, F fires, R reloads, P pauses, Tab opens the city record, and G opens the nearby garage. Saves live in localStorage.
 
+For reproducible screenshots, await `window.setCapturePreset(name)` with `cover`, `onfoot`, `harbour` or `cityrecord`. Run `python -u browser_qa.py` with the game served on `127.0.0.2:8085` to assert every required element's projected NDC bounds and recapture all four frames. See `QA.md` and `.makefun/capture-measurements.json` for the measured evidence.
+
 <sub>Entered on [make.fun](https://make.fun/?ref=w5k1aby9&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>

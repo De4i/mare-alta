@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 from PIL import Image
 from playwright.async_api import async_playwright
@@ -73,55 +74,54 @@ async def main():
         await page.get_by_role('button', name='Retry checkpoint').click()
         assert await page.evaluate('window.mareAlta.state.health') == 100
         print('PASS death recovery and retry', flush=True)
-        # Cover framing: daylight, player, police, visible traffic and HUD.
+        # Capture measurements are taken again immediately before each screenshot.
         names=['01-coastal-response.jpg','02-old-town.jpg','03-port-run.jpg','04-city-record.jpg']
+        measurements=[]
         for i,name in enumerate(names):
-            if i<3:
-                await page.evaluate('(i)=>window.mareAlta.qa.stage(i)', i)
-                await page.wait_for_timeout(700)
-                before = await page.evaluate('window.mareAlta.qa.motion()')
-                await page.wait_for_timeout(500)
-                after = await page.evaluate('window.mareAlta.qa.motion()')
-                if i == 0:
-                    await page.wait_for_function('window.mareAlta.qa.audit().police.filter(u=>u.distance<60 && u.lamps.every(v=>v>=3)).length>=2')
-                audit=await page.evaluate('window.mareAlta.qa.freeze()')
-                for key, minimum in [('traffic', 8), ('people', 12)]:
-                    previous = {a['id']: a for a in before[key]}
-                    moving = sum(a['id'] in previous and
-                                 abs(a['x']-previous[a['id']]['x'])+abs(a['z']-previous[a['id']]['z']) > .001
-                                 for a in after[key])
-                    print(f'ASSERT {name} moving {key}={moving} minimum={minimum}', flush=True)
-                    assert moving >= minimum, (name, key, moving)
-                print(f'ASSERT {name} frustum traffic={audit["traffic"]} pedestrians={audit["pedestrians"]} minimum=8/12', flush=True)
-                assert audit['traffic'] >= (10 if i==0 else 8) and audit['pedestrians'] >= (15 if i==0 else 12), audit
-                print(f'ASSERT {name} car bounds={audit["carBounds"]} viewport=1280x720 margin=18', flush=True)
-                assert audit['playerCarInFrame'], audit
-                if i == 0:
-                    print(f'ASSERT cover police distances/emissive={audit["police"]} camera={audit["camera"]}', flush=True)
-                    assert len([u for u in audit['police'] if u['distance']<60 and all(v>=3 for v in u['lamps'])]) >= 2, audit
-                    assert 6<=audit['camera']['behind']<=8 and 2.5<=audit['camera']['y']<=3, audit
-                    await page.evaluate('window.mareAlta.qa.resume()')
-                    await page.wait_for_function('window.mareAlta.qa.audit().police.some(u=>u.lamps.every(v=>v===0))')
-                    print('ASSERT cover timer reached dark emissive=0 after lit emissive=3', flush=True)
-                    await page.wait_for_function('window.mareAlta.qa.audit().police.filter(u=>u.distance<60 && u.lamps.every(v=>v>=3)).length>=2')
-                    audit=await page.evaluate('window.mareAlta.qa.freeze()')
-                if i == 1:
-                    print(f'ASSERT foot player={audit["playerVisible"]} aiming gun={audit["gunVisible"]}', flush=True)
-                    assert audit['playerVisible'] and audit['gunVisible'], audit
-                if i == 2:
-                    print(f'ASSERT harbour water={audit["water"]} boats={audit["boats"]} quay distance={audit["quayDistance"]:.3f}m maximum=25m', flush=True)
-                    assert audit['water']>=1 and audit['boats']>=1 and audit['quayDistance']<=25, audit
-                    print(f'ASSERT harbour active job marker visible={audit["markerVisible"]} bounds={audit["markerBounds"]}', flush=True)
-                    assert audit['markerVisible'] and audit['markerBounds']['depth'], audit
-                assert await page.locator('#toast').evaluate("e => e.classList.contains('hidden')")
-                assert await page.locator('#clock').text_content() == '14:18'
-                assert await page.locator('#radio').text_content() == 'MARÉ FM'
-                assert await page.locator('#ammo').text_content() == 'AMMO 18/144'
-                print(f'FRAME {i+1}: {audit}', flush=True)
+            preset=['cover','onfoot','harbour','cityrecord'][i]
+            await page.evaluate('(name)=>window.setCapturePreset(name)', preset)
+            audit=await page.evaluate('window.mareAlta.qa.measure()')
+            measurements.append(audit)
+            print(f'FRAME {preset}: '+json.dumps(audit), flush=True)
+            assert audit['elements'], ('No measured elements', preset)
+            for e in audit['elements']:
+                print(f'NDC {preset} {e["id"]}: min={e["min"]} max={e["max"]} front={e["front"]} visible={e["visible"]}', flush=True)
+                assert e['inside'] and e['visible'], (preset,e)
+            by_id={e['id']:e for e in audit['elements']}
+            s=audit['state']
+            if i==0:
+                b=by_id['player-car']
+                assert all(-.8<=b['min'][k]<=b['max'][k]<=.8 for k in (0,1)), b
+                assert abs(audit['camera']['behind']-7)<.001 and abs(audit['camera']['pitch']-12)<.001
+                assert abs(audit['camera']['position'][1]-3)<.001 # 2.9 above the car's y=.1
+                assert s['vehicle'] and s['wanted']==3 and s['cash']==650
+                assert len([e for e in by_id if e.startswith('traffic-')])>=10
+                assert len([e for e in by_id if e.startswith('pedestrian-')])>=15
+                assert 11<=by_id['police-1']['distance']<=14 and 19<=by_id['police-2']['distance']<=22
+            if i==1:
+                assert not s['vehicle'] and s['wanted']==2 and audit['flash'] and s['shots']>0
+                assert len([e for e in by_id if e.startswith('pedestrian-')])>=3
+                assert all(e['distance']<=25 for e in audit['elements'] if e['id'].startswith('pedestrian-'))
+                assert by_id['parked-car']['distance']<=15 and 23<=by_id['police-1']['distance']<=27
+            if i<2:
+                assert s['health']==60 and s['armour']==40 and s['ammo']==11 and s['reserve']==48
+                assert all(e['emissive']>=3 for e in audit['elements'] if e['id'].endswith('-lamp'))
+                assert await page.locator('#ammo').text_content() == 'AMMO 11/48'
+                assert await page.locator('#health').evaluate('e=>e.style.width') == '60%'
+                assert await page.locator('#armour').evaluate('e=>e.style.width') == '40%'
+            if i==2:
+                assert len([e for e in by_id if e.startswith('moored-boat-')])>=2
+                assert len([e for e in by_id if e.startswith('pedestrian-')])>=6
+                assert len([e for e in by_id if e.startswith('quay-vehicle-')])>=3
+                m=audit['minimapMarker'];assert 6<=m['x']<=172 and 6<=m['y']<=136, m
             if i==3:
-                await page.keyboard.press('Tab'); await page.wait_for_timeout(400)
                 assert await page.locator('#modal h2').text_content() == 'CITY RECORD'
                 print('ASSERT frame 4 CITY RECORD visible=1', flush=True)
+            assert await page.locator('#toast').evaluate("e => e.classList.contains('hidden')")
+            assert await page.locator('#clock').text_content() == '14:18'
+            assert await page.locator('#radio').text_content() == 'MARÉ FM'
+            await page.wait_for_timeout(100)
+            assert await page.evaluate('window.mareAlta.qa.measure()') == audit, ('Capture moved while held', preset)
             clipped = await page.evaluate('''() => [...document.querySelectorAll('.hud *')].filter(e => {
                 if (!e.getClientRects().length || !e.textContent.trim() || e.closest('.hidden')) return false;
                 const r=e.getBoundingClientRect(); return r.left<0 || r.top<0 || r.right>innerWidth || r.bottom>innerHeight;
@@ -134,6 +134,7 @@ async def main():
             assert (ROOT/'screenshots'/name).stat().st_size <= 256*1024
             print(f'ASSERT {name} JPEG={image.size} bytes={(ROOT/"screenshots"/name).stat().st_size} maximum=262144', flush=True)
             print(f'CAPTURE {name}', flush=True)
+        (ROOT/'.makefun'/'capture-measurements.json').write_text(json.dumps(measurements, indent=2)+'\n')
         print('PAGE ERRORS: '+repr(errors), flush=True)
         if errors: raise RuntimeError('browser page errors: '+repr(errors))
         await browser.close()
