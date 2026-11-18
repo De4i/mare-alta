@@ -8,6 +8,7 @@ const destination = process.env.MAKEFUN_OUTPUT_DIR || '/output';
 mkdirSync(destination, { recursive: true });
 cpSync(join(root, 'game'), join(destination, 'game'), { recursive: true, force: true });
 cpSync(join(root, 'screenshots'), join(destination, 'screenshots'), { recursive: true, force: true });
+writeFileSync(join(destination, 'game', 'build-info.json'), JSON.stringify({ title: 'Mare Alta', version: 'role-settings-art-pass', captures: 4 }, null, 2) + '\n');
 const dossier = buildDossier(destination, {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },

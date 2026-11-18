@@ -5,3 +5,4 @@ qa/
 qa-results.json
 __pycache__/
 *.log
+*.pyc

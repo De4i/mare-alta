@@ -1,5 +1,6 @@
-const KEY='mare-alta-save-v1';
-export function fresh(){return {x:-48,z:0,health:100,armour:50,cash:650,ammo:18,clip:18,reserve:144,reloading:0,wanted:0,mission:0,stage:0,missions:[],activities:0,collect:0,collected:[],kills:0,shots:0,stunts:0,distance:0,radio:0,volume:.35,vehicle:false,upgrades:{engine:0,armor:0,paint:0},tutorial:0}}
+const KEY='mare-alta-save-v2';
+export const ROLES={COURIER:{perk:'Swift feet / cheap repairs',speed:1.22,sprint:1.45,repair:.65,grip:1,top:1,heat:.0,price:1,payout:1},DRIVER:{perk:'Grip / quiet theft',speed:1,sprint:1,repair:1,grip:1.25,top:1.2,heat:-1,price:1,payout:1},FIXER:{perk:'Fast heat decay / better deals',speed:1,sprint:1,repair:1,grip:1,top:1,heat:-.55,price:.72,payout:1.2}};
+export function fresh(role='COURIER'){return {name:'Rafa Vale',role,attributes:{driving:1,aim:1,endurance:1},x:-48,z:0,health:100,armour:50,cash:650,ammo:18,clip:18,reserve:144,reloading:0,wanted:0,mission:0,stage:0,missions:[],activities:0,collect:0,collected:[],kills:0,shots:0,stunts:0,distance:0,radio:0,volume:.35,vehicle:false,upgrades:{engine:0,armor:0,paint:0},tutorial:0}}
 export function store(s){localStorage.setItem(KEY,JSON.stringify({...s,vehicle:false,reloading:0}))}
-export function restore(){try{const s=JSON.parse(localStorage.getItem(KEY));return s&&typeof s==='object'?{...fresh(),...s}:null}catch{return null}}
+export function restore(){try{const s=JSON.parse(localStorage.getItem(KEY));return s&&typeof s==='object'?{...fresh(s.role||'COURIER'),...s,attributes:{...fresh(s.role||'COURIER').attributes,...(s.attributes||{})},upgrades:{...fresh().upgrades,...(s.upgrades||{})}}:null}catch{return null}}
 export function hasSave(){return !!restore()}

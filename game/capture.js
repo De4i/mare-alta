@@ -49,31 +49,43 @@ export function captureTools({scene,camera,traffic,people,police,player,avatar,s
    scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
    const s=getState(),j=jobs[s.mission];
    const elements=required.map(({id,o,box})=>{let visible=true;for(let p=o;p;p=p.parent)visible&&=p.visible;const center=box?box.getCenter(new T.Vector3()):o.getWorldPosition(new T.Vector3());return {id,visible,distance:Math.hypot(center.x-s.x,center.z-s.z),emissive:o?.material?.emissiveIntensity,...ndcBox(box||new T.Box3().setFromObject(o))}});
-   if(preset==='cityrecord')for(const selector of ['#modal .modal-box','#modal h2']){const el=document.querySelector(selector),b=el.getBoundingClientRect(),min=[b.left/innerWidth*2-1,1-b.bottom/innerHeight*2,0],max=[b.right/innerWidth*2-1,1-b.top/innerHeight*2,0];elements.push({id:selector,visible:!el.closest('.hidden'),min,max,front:true,inside:min.every(v=>v>=-1)&&max.every(v=>v<=1)})}
-   return {preset,elements,camera:{position:camera.position.toArray(),pitch:Math.asin(-camera.getWorldDirection(new T.Vector3()).y)*180/Math.PI,behind:Math.hypot(camera.position.x-s.x,camera.position.z-s.z)},state:{vehicle:s.vehicle,health:s.health,armour:s.armour,ammo:s.ammo,reserve:s.reserve,cash:s.cash,wanted:s.wanted,mission:s.mission,shots:s.shots},minimapMarker:{x:89+(j.x-s.x)*.7,y:71+(j.z-s.z)*.6},flash:flash.visible};
+    if(preset==='cityrecord')for(const selector of ['#modal .modal-box','#modal h2']){const el=document.querySelector(selector),b=el.getBoundingClientRect(),min=[b.left/innerWidth*2-1,1-b.bottom/innerHeight*2,0],max=[b.right/innerWidth*2-1,1-b.top/innerHeight*2,0];elements.push({id:selector,visible:!el.closest('.hidden'),min,max,front:true,inside:min.every(v=>v>=-1)&&max.every(v=>v<=1)})}
+    const inFrame=obj=>{for(let p=obj;p;p=p.parent)if(!p.visible)return false;return ndcBox(new T.Box3().setFromObject(obj)).inside};
+    const lit=u=>u.lamps.some(l=>l.material.emissiveIntensity>=3);
+    const counts={vehicles:[...traffic.filter(c=>!c.stolen&&inFrame(c.g)),...police.units.filter(u=>inFrame(u.g))].length,pedestrians:people.filter(a=>inFrame(a.p)).length,policeLampsInLitPhase:police.units.filter(u=>inFrame(u.g)&&lit(u)).length,boats:scene.children.filter(o=>o.name==='moored-boat'&&inFrame(o)).length,cranes:scene.children.filter(o=>o.name==='gantry-crane'&&inFrame(o)).length,water:required.filter(r=>r.id&&r.id.startsWith('sea')&&r.box&&ndcBox(r.box).inside).length};
+    return {preset,elements,counts,camera:{position:camera.position.toArray(),pitch:Math.asin(-camera.getWorldDirection(new T.Vector3()).y)*180/Math.PI,behind:Math.hypot(camera.position.x-s.x,camera.position.z-s.z)},state:{name:s.name,role:s.role,attributes:s.attributes,vehicle:s.vehicle,health:s.health,armour:s.armour,ammo:s.ammo,reserve:s.reserve,cash:s.cash,wanted:s.wanted,mission:s.mission,shots:s.shots},minimapMarker:{x:89+(j.x-s.x)*.7,y:71+(j.z-s.z)*.6},flash:flash.visible};
   }
   function place(name){
    preset=name;required=[];const s=getState(),cover=name==='cover',foot=name==='onfoot';
    Object.assign(s,{mission:cover||foot?3:6,stage:0,vehicle:cover,wanted:cover?3:foot?2:0,x:cover?-42:foot?0:-68,z:cover?72:foot?64:88,heading:Math.PI/2,clockMinutes:858,health:60,armour:40,ammo:11,reserve:48,cash:650,tutorial:1,reloading:0});
-   s.captureCamera=cover?{position:[-49,3,72],target:[-19,3-30*Math.tan(Math.PI/15),72]}:foot?{position:[-7,4,60],target:[18,1.4,69]}:{position:[-68,3,88],target:[-72,3,48]};
+   s.captureCamera=cover?{position:[-49,3,72],target:[-19,3-30*Math.tan(Math.PI/15),72]}:foot?{position:[-7,4,60],target:[18,1.4,69]}:{position:[-70,6,96],target:[-72,1,58]};
    camera.fov=cover?64:foot?65:80;camera.updateProjectionMatrix();follow(camera,s);
    traffic.forEach(c=>{c.g.visible=false;c.stolen=false});people.forEach(a=>{a.p.visible=false});police.units.forEach(u=>{u.g.visible=false;u.active=true});police.officers.forEach(o=>o.visible=false);police.helicopter.visible=false;
-   const car=(c,x,z,id)=>{c.g.visible=true;c.g.position.set(x,.1,z);c.g.rotation.y=Math.PI/2;c.speed=.35;c.axis='x';c.direction=1;requireObject(id,c.g)};
+   const car=(c,x,z,id)=>{c.g.visible=true;c.g.position.set(x,.1,z);c.g.rotation.y=Math.PI/2;c.speed=cover?3.4:0.35;c.axis='x';c.direction=1;requireObject(id,c.g)};
    const pedestrian=(i,x,z)=>{const a=people[i];a.p.visible=true;a.homeX=x;a.homeZ=z;a.p.position.set(x,.2,z);a.p.rotation.y=Math.PI/2;a.p.userData.legs.forEach((l,k)=>l.rotation.x=k?.2:-.2);requireObject(`pedestrian-${i+1}`,a.p)};
-   const cruiser=(i,x,z)=>{const u=police.units[i];car(u,x,z,`police-${i+1}`);u.hp=100;u.lamps.forEach((l,k)=>{l.visible=true;l.material.emissiveIntensity=3;requireObject(`police-${i+1}-${k?'blue':'red'}-lamp`,l)})};
+   const cruiser=(i,x,z)=>{const u=police.units[i];car(u,x,z,`police-${i+1}`);u.hp=u.heavy?150:100;u.lamps.forEach((l,k)=>{l.visible=true;l.material.emissiveIntensity=3.5;l.scale.set(1.35,1.5,1.35);requireObject(`police-${i+1}-${k?'blue':'red'}-lamp`,l)})};
    driver.visible=cover;gun.visible=foot;flash.visible=foot;avatar.rotation.y=Math.PI/2;marker.visible=!cover&&!foot;
-   if(cover){car(traffic[0],s.x,s.z,'player-car');traffic[0].stolen=true;requireObject('seated-driver',driver);cruiser(0,-30,69);cruiser(1,-22,75);
-    for(let i=0;i<10;i++)car(traffic[i+1],-12+Math.floor(i/2)*7,69+(i%2)*6,`traffic-${i+1}`);
-    for(let i=0;i<16;i++)pedestrian(i,-28+Math.floor(i/2)*5,i%2?80:64);
+   if(cover){
+    // Chase-camera cover: the player car flanked by two lit cruisers, with a
+    // dense lane of moving traffic and a busy promenade crowd inside the frame.
+    car(traffic[0],s.x,s.z,'player-car');traffic[0].stolen=true;requireObject('seated-driver',driver);
+    cruiser(0,-38,68);cruiser(1,-31,77);
+    const lanes=[[-36,65],[-36,79],[-27,65],[-27,79],[-18,65],[-18,79],[-9,65],[-9,79],[-2,72],[6,64]];
+    lanes.forEach(([x,z],i)=>car(traffic[i+1],x,z,`traffic-${i+1}`));
+    const crowd=[[-34,62],[-34,82],[-30,62],[-30,82],[-26,62],[-26,82],[-22,62],[-22,82],[-18,62],[-18,82],[-14,62],[-14,82],[-10,62],[-10,82],[-6,62],[-6,82]];
+    crowd.forEach(([x,z],i)=>pedestrian(i,x,z));
    }else if(foot){requireObject('player',avatar);requireObject('drawn-weapon',gun);requireObject('muzzle-flash',flash);car(traffic[0],9,69,'parked-car');traffic[0].speed=0;cruiser(0,24,71);for(let i=0;i<3;i++)pedestrian(i,8+i*6,64);
    }else{
-    for(let i=0;i<6;i++)pedestrian(i,-68,72-i*4);
-    for(let i=0;i<3;i++)car(traffic[i],-63,70-i*10,`quay-vehicle-${i+1}`);
-    const boats=scene.children.filter(o=>o.name==='moored-boat');boats.forEach((o,i)=>{requireObject(`moored-boat-${i+1}`,o);section(`boat-${i+1}-cabin`,[-79.4,.8,o.position.z-2.5],[-76.6,1.7,o.position.z+.5])});
+    // Harbour: moored boats with hulls and masts, a gantry crane over the quay,
+    // container stacks, quay traffic and a promenade crowd, all inside the frame.
+    for(let i=0;i<6;i++)pedestrian(i,-69,66+i*3.6);
+    for(let i=0;i<3;i++)car(traffic[i],-67,70+i*6,`quay-vehicle-${i+1}`);
+    const boats=scene.children.filter(o=>o.name==='moored-boat');boats.forEach((o,i)=>{requireObject(`moored-boat-${i+1}`,o);requireObject(`boat-${i+1}-mast`,scene.children.find(c=>c.name==='boat-mast'&&Math.abs(c.position.z-(o.position.z+1.6))<.2))});
+    const crane=scene.children.find(o=>o.name==='gantry-crane');requireObject('gantry-crane',crane);requireObject('crane-trolley',crane.getObjectByName('crane-trolley'));
+    scene.children.filter(o=>o.name==='container-stack').forEach((o,i)=>requireObject(`container-stack-${i+1}`,o));
     // Surface patches belong to the existing broad meshes; projecting their full
     // 184–210 m bounds would require framing the entire coastline.
-    section('sea-visible-section',[-86,0,35],[-74,.04,68]);section('quay-wall-visible-section',[-72,-.55,38],[-70,.85,70]);section('promenade-visible-section',[-70,0,42],[-66,.27,76]);
-    scene.children.filter(o=>o.position.x===-64&&o.position.y===1.3).forEach((o,i)=>requireObject(`container-${i+1}`,o));
+    section('sea-visible-section',[-82,0,64],[-76,.04,86]);section('quay-wall-visible-section',[-72,-.55,62],[-70,.85,88]);section('promenade-visible-section',[-70,0,62],[-66,.27,90]);
     marker.position.set(jobs[s.mission].x,3,jobs[s.mission].z);marker.rotation.x=0;requireObject('active-job-marker',marker);
    }
    sync();document.querySelectorAll('#toast,#dialog,#modal').forEach(el=>el.classList.add('hidden'));

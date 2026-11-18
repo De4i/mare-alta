@@ -1,2 +1,4 @@
 import './vendor/three.min.js';
-export default globalThis.THREE;
+const THREE=globalThis.THREE;
+THREE.Cache.enabled=true;
+export default THREE;
